@@ -62,15 +62,15 @@ class Application_ui(Frame):
 
         self.Text3Font = Font(font=('宋体',9))
         self.Text3 = Text(self.top, font=self.Text2Font)
-        self.Text3.place(relx=0.421, rely=0.23, relwidth=0.177, relheight=0.08)
+        self.Text3.place(relx=0.421, rely=0.23, relwidth=0.177, relheight=0.16)
         
         self.Text4Font = Font(font=('宋体',9))
         self.Text4 = Text(self.top, font=self.Text2Font)
-        self.Text4.place(relx=0.421, rely=0.37, relwidth=0.177, relheight=0.08)
+        self.Text4.place(relx=0.421, rely=0.45, relwidth=0.177, relheight=0.08)
 
         self.Text5Font = Font(font=('宋体',9))
         self.Text5 = Text(self.top, font=self.Text2Font)
-        self.Text5.place(relx=0.421, rely=0.51, relwidth=0.177, relheight=0.08)
+        self.Text5.place(relx=0.421, rely=0.59, relwidth=0.177, relheight=0.10)
 
         self.Text6Font = Font(font=('宋体',9))
         self.Text6 = Text(self.top, font=self.Text2Font)
@@ -95,11 +95,11 @@ class Application_ui(Frame):
 
         self.style.configure('Label5.TLabel',anchor='w', font=('宋体',9))
         self.Label5 = Label(self.top, text='硬盘空间', style='Label5.TLabel')
-        self.Label5.place(relx=0.421, rely=0.32, relwidth=0.12, relheight=0.04)
+        self.Label5.place(relx=0.421, rely=0.40, relwidth=0.12, relheight=0.04)
 
         self.style.configure('Label4.TLabel',anchor='w', font=('宋体',9))
         self.Label6 = Label(self.top, text='流量值', style='Label6.TLabel')
-        self.Label6.place(relx=0.421, rely=0.46, relwidth=0.12, relheight=0.04)
+        self.Label6.place(relx=0.421, rely=0.54, relwidth=0.12, relheight=0.04)
 
 
 class Application(Application_ui):
@@ -134,17 +134,68 @@ class Application(Application_ui):
         self.Text2.insert('1.0',"CPU使用率："+str(pro)+'%\n')
         """
         self.Text2.delete('0.0',END)
-        cpu_result = snmpWalk(host, '1.3.6.1.4.1.2021.11.9.0')[-2].split(' ')[-1]
+        cpu_result = snmpWalk(host, '1.3.6.1.4.1.2021.11.9.0').split(' ')[-1][:-1]
         self.Text2.insert('1.0',"用户CPU使用率："+str(cpu_result)+'%\n')
         # 内存
         self.Text3.delete('0.0',END)
+        """
         mem_total = snmpWalk(host, 'HOST-RESOURCES-MIB::hrMemorySize.0')[0].split(' ')[3]
         mem_sto_used = snmpWalk(host, 'HOST-RESOURCES-MIB::hrStorageUsed.7')[0].split(' ')[3]
         mem_sto_unit = snmpWalk(host, 'HOST-RESOURCES-MIB::hrStorageAllocationUnits.7')[0].split(' ')[3]
         mem_used=str(round(float(mem_sto_used)*float(mem_sto_unit)/1024/1024/1024,2))
         mem_used_total=float(mem_total)     
         mem_used_rate=str(round(float(mem_sto_used)*float(mem_sto_unit)/1024/mem_used_total*100,2))+'%'
-        self.Text3.insert('1.0',"总内存 : "+str(round(float(mem_total)/1024/1024,2))+" GB\n"+"内存使用："+mem_used+"GB\n"+"内存使用率："+mem_used_rate)
+        """
+        mem_total = snmpWalk(host, '.1.3.6.1.2.1.25.2.2.0').split(' ')[-2]
+        mem_used  = snmpWalk(host, '.1.3.6.1.4.1.2021.4.6.0').split(' ')[-2]
+        mem_used_rate = 100*float(mem_used)/float(mem_total)
+        self.Text3.insert('1.0',"总内存 : "+str(round(float(mem_total)/1024/1024,2))+" GB\n"+"内存使用："+mem_used+"GB\n"+"内存使用率："+str(round(mem_used_rate,2))+"%\n")
+        
+        # 流量信息
+        device_mib = snmpWalk(host, 'RFC1213-MIB::ifDescr').split("\n")
+        device_list = []
+        for item in device_mib[:-1]:
+            device_list.append(item.split(':')[3].strip())
+        # 流入流量
+        data_mib = snmpWalk(host, 'IF-MIB::ifInOctets').split("\n")
+        data = []
+        for item in data_mib[:-1]:
+            byte = float(item.split(':')[3].strip())
+            data.append(str(round(byte / 1024, 2)))
+        inside = data
+        # 流出流量
+        data_mib = snmpWalk(host, 'IF-MIB::ifOutOctets').split("\n")
+        data = []
+        for item in data_mib[:-1]:
+            byte = float(item.split(':')[3].strip())
+            data.append(str(round(byte / 1024, 2)))
+        outside = data
+        rxsum=0.0
+        txsum=0.0
+        for i, item in enumerate(device_list):
+            rxsum+=float(inside[i])
+            txsum+=float(outside[i])
+        rxsum=round(rxsum/1024,2)
+        txsum=round(txsum/1024,2)
+        self.Text5.delete('0.0',END)
+        self.Text5.insert('1.0',"发送流量："+str(txsum)+'MB'+'\n'+"接收流量："+str(rxsum)+'MB'+'\n')
+
+        #硬盘
+        self.Text4.delete('0.0',END)
+        disk_total = snmpWalk(host, 'HOST-RESOURCES-MIB::hrStorageIndex').split("\n")
+        disk_num=len(disk_total)-2
+        tmp=1
+        diskstr=''
+        while tmp<=disk_num:
+            unit=snmpWalk(host, 'HOST-RESOURCES-MIB::hrStorageAllocationUnits.'+str(tmp)).split("\n")[0].split(' ')[3]
+            stor=snmpWalk(host, 'HOST-RESOURCES-MIB::hrStorageSize.'+str(tmp)).split("\n")[0].split(' ')[3]
+            storge=round(float(unit)*float(stor)/1024/1024/1024,4)
+            diskstr=diskstr+snmpWalk(host, 'HOST-RESOURCES-MIB::hrStorageDescr.'+str(tmp)).split("\n")[0].split(' ')[3]+' '+str(storge)+'GB'+'\n'
+            tmp+=1
+        self.Text4.insert('1.0',"硬盘数："+str(disk_num)+'\n'+diskstr)
+
+
+
 
         
 
