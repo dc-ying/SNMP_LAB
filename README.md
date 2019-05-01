@@ -8,3 +8,7 @@
 - [ ]	开发阈值告警功能，用户通过界面可设置性能阈值（如 CPU），当超过阈值时自动报警。（3分）
 - [ ]	实现SNMP Trap、Set功能并测试。（3分）
 - [ ]	在控制台动态显示主机 CPU、内存利用曲线。（2分）
+
+## Links
+[OID](http://www.ttlsa.com/monitor/snmp-oid/)
+[Similar Project](https://blog.csdn.net/qq_34965116/article/details/80210377)
